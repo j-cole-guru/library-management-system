@@ -29,6 +29,11 @@
 
   <script src="js/api.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/borrow.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("borrowedContainer").innerHTML =
+        '<p style="text-align:center;color:var(--gray);">Borrowing feature is not available yet. Check back later.</p>';
+    });
+  </script>
 </body>
 </html>

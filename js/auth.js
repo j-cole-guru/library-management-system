@@ -2,41 +2,43 @@ function isLoggedIn() {
   return !!localStorage.getItem("token");
 }
 
-function getToken() {
-  return localStorage.getItem("token");
-}
-
-function getUser() {
-  const stored = localStorage.getItem("user");
-  return stored ? JSON.parse(stored) : null;
-}
-
-function saveAuth(token, user) {
-  localStorage.setItem("token", token);
-  localStorage.setItem("user", JSON.stringify(user));
-}
-
 function clearAuth() {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
 }
 
-function redirectIfLoggedIn() {
-  if (isLoggedIn()) {
-    window.location.href = "dashboard.html";
-  }
+function logout() {
+  clearAuth();
+  window.location.href = "index.html";
 }
 
-function redirectIfNotLoggedIn() {
-  if (!isLoggedIn()) {
-    window.location.href = "login.html";
-  }
+function showFieldError(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = "block";
 }
 
-function redirectNonAdmin() {
-  const user = getUser();
-  if (!user || user.role !== "admin") {
-    window.location.href = "dashboard.html";
+function showMessage(el, text, type) {
+  el.textContent = text;
+  el.className = "message " + type;
+  el.style.display = "block";
+}
+
+function populateNav() {
+  const nav = document.getElementById("navLinks");
+  if (!nav) return;
+  let html = '<li><a href="index.html">Home</a></li>';
+  html += '<li><a href="books.html">Books</a></li>';
+  html += '<li><a href="admin-books.html">Admin</a></li>';
+  nav.innerHTML = html;
+}
+
+function setupHamburger() {
+  const hamburger = document.getElementById("hamburger");
+  const navLinks = document.getElementById("navLinks");
+  if (hamburger && navLinks) {
+    hamburger.addEventListener("click", () => {
+      navLinks.classList.toggle("open");
+    });
   }
 }
 
@@ -74,7 +76,8 @@ async function handleRegister(event) {
       method: "POST",
       body: JSON.stringify({ name, email, password }),
     });
-    saveAuth(data.token, data.user);
+    localStorage.setItem("token", data.token);
+    if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
     window.location.href = "dashboard.html";
   } catch (err) {
     showMessage(messageEl, err.message, "error");
@@ -113,60 +116,14 @@ async function handleLogin(event) {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
-    saveAuth(data.token, data.user);
+    localStorage.setItem("token", data.token);
+    if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
     window.location.href = "dashboard.html";
   } catch (err) {
     showMessage(messageEl, err.message, "error");
   } finally {
     document.getElementById("loginBtn").disabled = false;
     document.getElementById("loginBtn").textContent = "Login";
-  }
-}
-
-function logout() {
-  clearAuth();
-  window.location.href = "index.html";
-}
-
-function showFieldError(id) {
-  const el = document.getElementById(id);
-  if (el) el.style.display = "block";
-}
-
-function showMessage(el, text, type) {
-  el.textContent = text;
-  el.className = "message " + type;
-  el.style.display = "block";
-}
-
-function populateNav() {
-  const nav = document.getElementById("navLinks");
-  if (!nav) return;
-  const loggedIn = isLoggedIn();
-  const user = getUser();
-  let html = '<li><a href="index.html">Home</a></li>';
-  html += '<li><a href="books.html">Books</a></li>';
-  if (loggedIn) {
-    html += '<li><a href="dashboard.html">Dashboard</a></li>';
-    html += '<li><a href="borrowed-books.html">My Books</a></li>';
-    if (user && user.role === "admin") {
-      html += '<li><a href="admin-books.html">Admin</a></li>';
-    }
-    html += `<li><a href="#" onclick="logout()" style="color:var(--gold);">Logout</a></li>`;
-  } else {
-    html += '<li><a href="login.html" class="btn-nav">Login</a></li>';
-    html += '<li><a href="register.html" class="btn-nav">Register</a></li>';
-  }
-  nav.innerHTML = html;
-}
-
-function setupHamburger() {
-  const hamburger = document.getElementById("hamburger");
-  const navLinks = document.getElementById("navLinks");
-  if (hamburger && navLinks) {
-    hamburger.addEventListener("click", () => {
-      navLinks.classList.toggle("open");
-    });
   }
 }
 

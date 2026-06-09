@@ -3,8 +3,7 @@
 
   async function loadBooks() {
     try {
-      const data = await apiFetch("/books");
-      allBooks = data.books || data;
+      allBooks = await apiFetch("/books");
       populateCategories(allBooks);
       renderBooks(allBooks);
     } catch (err) {
@@ -38,11 +37,11 @@
       .map(
         (book) => `
       <div class="book-card">
-        <img src="${book.coverImage || "https://via.placeholder.com/300x400?text=No+Cover"}" alt="${book.title}">
+        <img src="https://via.placeholder.com/300x400?text=No+Cover" alt="${book.title}">
         <div class="card-body">
           <h3>${book.title}</h3>
           <p>${book.author}</p>
-          <a href="book-details.html?id=${book._id}" class="btn">View Details</a>
+          <a href="book-details.html?id=${book.id || book._id}" class="btn">View Details</a>
         </div>
       </div>
     `
@@ -56,7 +55,7 @@
     const filtered = allBooks.filter((book) => {
       const matchSearch =
         book.title.toLowerCase().includes(query) ||
-        book.author.toLowerCase().includes(query);
+        (book.author || "").toLowerCase().includes(query);
       const matchCategory = !category || book.category === category;
       return matchSearch && matchCategory;
     });
@@ -77,31 +76,27 @@
 
     (async () => {
       try {
-        const data = await apiFetch(`/books/${id}`);
-        const book = data.book || data;
-        const loggedIn = isLoggedIn();
-        const copiesAvail = book.availableCopies != null ? book.availableCopies : book.totalCopies;
-        const isAvailable = copiesAvail > 0;
+        const book = await apiFetch(`/books/${id}`);
+        const copies = book.copies || 0;
+        const isAvailable = copies > 0;
 
         container.innerHTML = `
           <div class="book-detail">
             <div class="book-cover">
-              <img src="${book.coverImage || "https://via.placeholder.com/300x400?text=No+Cover"}" alt="${book.title}">
+              <img src="https://via.placeholder.com/300x400?text=No+Cover" alt="${book.title}">
             </div>
             <div class="book-info">
               <h1>${book.title}</h1>
-              <p class="author">by ${book.author}</p>
+              <p class="author">by ${book.author || "Unknown"}</p>
               <div class="meta">
                 <span><strong>Category:</strong> ${book.category || "N/A"}</span>
                 <span><strong>ISBN:</strong> ${book.isbn || "N/A"}</span>
-                <span><strong>Total Copies:</strong> ${book.totalCopies || "N/A"}</span>
+                <span><strong>Copies:</strong> ${copies}</span>
               </div>
               <div class="availability ${isAvailable ? "available" : "unavailable"}">
-                ${isAvailable ? "&#10003; Available (" + copiesAvail + " copies)" : "&#10007; Currently Unavailable"}
+                ${isAvailable ? "&#10003; Available (" + copies + " copies)" : "&#10007; Currently Unavailable"}
               </div>
               <p class="description">${book.description || "No description available."}</p>
-              ${loggedIn && isAvailable ? `<button class="btn btn-primary" onclick="borrowBook('${book._id}')">Borrow This Book</button>` : ""}
-              ${!loggedIn ? `<p style="color:var(--gray);"><a href="login.html" style="color:var(--gold);">Login</a> to borrow this book.</p>` : ""}
             </div>
           </div>
         `;
@@ -110,16 +105,6 @@
       }
     })();
   }
-
-  window.borrowBook = async function (bookId) {
-    try {
-      await apiFetch(`/borrow/${bookId}`, { method: "POST" });
-      alert("Book borrowed successfully!");
-      loadBookDetails();
-    } catch (err) {
-      alert("Failed to borrow: " + err.message);
-    }
-  };
 
   const searchInput = document.getElementById("searchInput");
   const categoryFilter = document.getElementById("categoryFilter");

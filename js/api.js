@@ -15,7 +15,7 @@ async function apiFetch(endpoint, options = {}) {
   });
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.message || data.error || "Request failed");
+    throw new Error(data.error || data.message || "Request failed");
   }
   return data;
 }
