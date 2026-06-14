@@ -72,7 +72,11 @@
       const role = localStorage.getItem('role')
       if (!token || role !== 'admin') { window.location.href = 'login.html'; return; }
 
-      let allUsers = []
+      let currentPage = 1
+      let currentSearch = ''
+      let totalPages = 1
+      let currentTotal = 0
+      const perPage = 15
 
       function showGlobalMsg(text, type) {
         const el = document.getElementById('globalMessage')
@@ -113,23 +117,65 @@
         }).join('')
       }
 
-      function filterAndRender() {
-        const q = (document.getElementById('searchInput').value || '').toLowerCase()
-        const filtered = allUsers.filter(u =>
-          (u.name || '').toLowerCase().includes(q) ||
-          u.username.toLowerCase().includes(q)
-        )
-        renderTable(filtered)
+      function renderPagination() {
+        const wrapper = document.querySelector('.admin-table-wrapper')
+        if (!wrapper) return
+
+        const existing = document.getElementById('userPagination')
+        if (existing) existing.remove()
+
+        if (totalPages <= 1) return
+
+        const nav = document.createElement('div')
+        nav.id = 'userPagination'
+        nav.style.cssText = 'display:flex;justify-content:center;align-items:center;gap:0.5rem;margin-top:1rem;'
+
+        const prev = document.createElement('button')
+        prev.className = 'btn btn-secondary btn-xs'
+        prev.textContent = '‹ Prev'
+        prev.disabled = currentPage <= 1
+        prev.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadUsers(currentPage) } })
+        nav.appendChild(prev)
+
+        const info = document.createElement('span')
+        info.style.cssText = 'font-size:0.9rem;color:var(--gray);padding:0 0.8rem;'
+        info.textContent = `Page ${currentPage} of ${totalPages} (${currentTotal} total)`
+        nav.appendChild(info)
+
+        const next = document.createElement('button')
+        next.className = 'btn btn-secondary btn-xs'
+        next.textContent = 'Next ›'
+        next.disabled = currentPage >= totalPages
+        next.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadUsers(currentPage) } })
+        nav.appendChild(next)
+
+        wrapper.parentNode.insertBefore(nav, wrapper.nextSibling)
       }
 
-      async function loadUsers() {
+      async function loadUsers(page = 1) {
         try {
-          allUsers = await apiFetch('/users')
-          renderTable(allUsers)
+          const params = new URLSearchParams()
+          if (page > 1) params.set('page', page)
+          if (perPage !== 20) params.set('limit', perPage)
+          if (currentSearch) params.set('search', currentSearch)
+
+          const qs = params.toString()
+          const res = await apiFetch(`/users${qs ? '?' + qs : ''}`)
+          currentPage = res.page
+          totalPages = res.pages
+          currentTotal = res.total
+          renderTable(res.data)
+          renderPagination()
         } catch (err) {
           document.getElementById('usersBody').innerHTML =
             `<tr><td colspan="4" style="text-align:center;color:var(--danger);padding:2rem;">${err.message}</td></tr>`
         }
+      }
+
+      function onSearchChange() {
+        currentSearch = document.getElementById('searchInput').value.trim()
+        currentPage = 1
+        loadUsers(1)
       }
 
       window.toggleRole = async function (id, newRole) {
@@ -156,8 +202,13 @@
         }
       }
 
-      document.getElementById('searchInput').addEventListener('input', filterAndRender)
+      document.getElementById('searchInput').addEventListener('input', debounce(onSearchChange, 300))
       loadUsers()
+
+      function debounce(fn, ms) {
+        let timer
+        return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms) }
+      }
     })()
   </script>
 </body>
