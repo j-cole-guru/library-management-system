@@ -24,7 +24,10 @@ function populateNav() {
 
   if (token) {
     if (role === "admin") {
-      html += `<li><a href="admin-books.html">Admin</a></li>`;
+      html += `<li><a href="admin-books.html">Admin</a></li>`
+      html += `<li><a href="borrow-records.html">Borrow Records</a></li>`
+    } else {
+      html += `<li><a href="my-books.html">My Books</a></li>`
     }
     html += `
       <li class="user-info" style="color: var(--gold); font-size: 0.95rem; display: flex; align-items: center;">
