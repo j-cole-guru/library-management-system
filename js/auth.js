@@ -26,6 +26,7 @@ function populateNav() {
     if (role === "admin") {
       html += `<li><a href="admin-books.html">Admin</a></li>`
       html += `<li><a href="borrow-records.html">Borrow Records</a></li>`
+      html += `<li><a href="manage-users.html">Users</a></li>`
     } else {
       html += `<li><a href="my-books.html">My Books</a></li>`
     }

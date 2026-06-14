@@ -82,8 +82,9 @@
     <ul class="nav-links" id="navLinks"></ul>
   </nav>
 
-  <div class="records-page">
+    <div class="records-page">
     <h1>Borrow <span>Records</span></h1>
+    <div id="userFilterBanner" style="display:none; margin-bottom:1rem; padding:0.6rem 1rem; background:#f3e8ff; border-radius:8px; font-size:0.9rem;"></div>
 
     <div class="summary-bar" id="summaryBar"></div>
 
@@ -221,9 +222,23 @@
 
       async function loadRecords() {
         try {
-          allRecords = await apiFetch('/borrows')
-          renderSummary(allRecords)
-          filterAndRender()
+          const params = new URLSearchParams(window.location.search)
+          const userId = params.get('userId')
+
+          if (userId) {
+            document.getElementById('searchInput').closest('.search-bar').style.display = 'none'
+            document.getElementById('summaryBar').style.display = 'none'
+            const banner = document.getElementById('userFilterBanner')
+            banner.style.display = 'block'
+            const userRes = await apiFetch(`/users/${userId}`)
+            banner.innerHTML = `Showing borrows for <strong>${userRes.name || userRes.username}</strong> (@${userRes.username}) &nbsp; <a href="borrow-records.html" style="color:var(--navy);font-weight:500;">Show all records</a>`
+            allRecords = await apiFetch(`/borrows/user/${userId}`)
+            renderTable(allRecords)
+          } else {
+            allRecords = await apiFetch('/borrows')
+            renderSummary(allRecords)
+            filterAndRender()
+          }
         } catch (err) {
           document.getElementById('tableWrapper').innerHTML =
             `<p style="color:var(--danger);text-align:center;">${err.message}</p>`
