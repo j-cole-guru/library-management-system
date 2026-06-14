@@ -135,6 +135,10 @@
           if (r.extensionApproved) badges += `<span class="badge badge-ext-approved">Extension Approved (+${r.extensionDays} days)</span> `
 
           let actionBtns = ''
+          // Return button — for any borrowed book
+          if (r.status === 'borrowed') {
+            actionBtns += `<button class="btn btn-primary" style="font-size:0.82rem;padding:0.4rem 1rem;margin-bottom:0.4rem;" onclick="returnBook('${r.id}','${r.book?.id}')">&#8617; Return Book</button>`
+          }
           // Extension request button — only if still borrowed, not overdue, not already requested
           if (r.status === 'borrowed' && !overdue && !r.extensionRequested) {
             actionBtns += `<button class="btn btn-secondary" style="font-size:0.82rem;padding:0.4rem 1rem;" onclick="requestExtension('${r.id}')">Request Extension</button>`
@@ -168,6 +172,17 @@
         } catch (err) {
           document.getElementById('booksContainer').innerHTML =
             `<p style="color:var(--danger);text-align:center;">${err.message}</p>`
+        }
+      }
+
+      window.returnBook = async function (recordId, bookId) {
+        if (!confirm('Return this book?')) return
+        try {
+          const res = await apiFetch(`/books/${bookId}/return`, { method: 'POST' })
+          showGlobalMsg(res.message, 'success')
+          loadRecords()
+        } catch (err) {
+          showGlobalMsg(err.message, 'error')
         }
       }
 
