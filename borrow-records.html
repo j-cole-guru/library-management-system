@@ -111,7 +111,12 @@
       const role = localStorage.getItem('role')
       if (!token || role !== 'admin') { window.location.href = 'login.html'; return; }
 
-      let allRecords = []
+      let currentPage = 1
+      let currentSearch = ''
+      let currentStatus = ''
+      let totalPages = 1
+      let currentTotal = 0
+      const perPage = 15
 
       function formatDate(dateStr) {
         if (!dateStr) return '—'
@@ -128,24 +133,6 @@
         el.className = 'message ' + type
         el.style.display = 'block'
         setTimeout(() => el.style.display = 'none', 4000)
-      }
-
-      function renderSummary(records) {
-        const total = records.length
-        const borrowed = records.filter(r => r.status === 'borrowed').length
-        const returned = records.filter(r => r.status === 'returned').length
-        const overdue = records.filter(r => isOverdue(r)).length
-        const pendingExt = records.filter(r => r.extensionRequested && !r.extensionApproved).length
-        const totalFines = records.reduce((sum, r) => sum + (r.fineAmount || 0), 0)
-
-        document.getElementById('summaryBar').innerHTML = `
-          <div class="summary-card"><div class="val">${total}</div><div class="lbl">Total Records</div></div>
-          <div class="summary-card"><div class="val" style="color:#1a6fb5">${borrowed}</div><div class="lbl">Currently Borrowed</div></div>
-          <div class="summary-card"><div class="val" style="color:#1a7a3a">${returned}</div><div class="lbl">Returned</div></div>
-          <div class="summary-card"><div class="val" style="color:var(--danger)">${overdue}</div><div class="lbl">Overdue</div></div>
-          <div class="summary-card"><div class="val" style="color:#7c3aed">${pendingExt}</div><div class="lbl">Ext. Requests</div></div>
-          <div class="summary-card"><div class="val" style="color:#b85c00">SLL ${totalFines}</div><div class="lbl">Total Fines</div></div>
-        `
       }
 
       function renderTable(records) {
@@ -200,30 +187,27 @@
               </thead>
               <tbody>${rows}</tbody>
             </table>
+          </div>
+
+          <div id="borrowPagination" style="display:flex;justify-content:center;align-items:center;gap:0.5rem;margin-top:1rem;">
+            <button class="btn btn-secondary btn-xs" id="prevPage" onclick="goToPage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>‹ Prev</button>
+            <span style="font-size:0.9rem;color:var(--gray);padding:0 0.8rem;">Page ${currentPage} of ${totalPages} (${currentTotal} total)</span>
+            <button class="btn btn-secondary btn-xs" id="nextPage" onclick="goToPage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>Next ›</button>
           </div>`
       }
 
-      function filterAndRender() {
-        const q = (document.getElementById('searchInput').value || '').toLowerCase()
-        const status = document.getElementById('statusFilter').value
-        let filtered = allRecords
-
-        if (status) filtered = filtered.filter(r => r.status === status)
-        if (q) {
-          filtered = filtered.filter(r =>
-            (r.user?.username || '').toLowerCase().includes(q) ||
-            (r.user?.name || '').toLowerCase().includes(q) ||
-            (r.book?.title || '').toLowerCase().includes(q) ||
-            (r.book?.isbn || '').toLowerCase().includes(q)
-          )
-        }
-        renderTable(filtered)
+      function renderPagination() {
+        const nav = document.getElementById('borrowPagination')
+        if (!nav) return
+        nav.querySelector('#prevPage').disabled = currentPage <= 1
+        nav.querySelector('#nextPage').disabled = currentPage >= totalPages
+        nav.querySelector('span').textContent = `Page ${currentPage} of ${totalPages} (${currentTotal} total)`
       }
 
-      async function loadRecords() {
+      async function loadRecords(page = 1) {
         try {
-          const params = new URLSearchParams(window.location.search)
-          const userId = params.get('userId')
+          const urlParams = new URLSearchParams(window.location.search)
+          const userId = urlParams.get('userId')
 
           if (userId) {
             document.getElementById('searchInput').closest('.search-bar').style.display = 'none'
@@ -232,17 +216,48 @@
             banner.style.display = 'block'
             const userRes = await apiFetch(`/users/${userId}`)
             banner.innerHTML = `Showing borrows for <strong>${userRes.name || userRes.username}</strong> (@${userRes.username}) &nbsp; <a href="borrow-records.html" style="color:var(--navy);font-weight:500;">Show all records</a>`
-            allRecords = await apiFetch(`/borrows/user/${userId}`)
-            renderTable(allRecords)
+
+            const res = await apiFetch(`/borrows/user/${userId}?page=${page}&limit=${perPage}`)
+            currentPage = res.page
+            totalPages = res.pages
+            currentTotal = res.total
+            renderTable(res.data)
           } else {
-            allRecords = await apiFetch('/borrows')
-            renderSummary(allRecords)
-            filterAndRender()
+            const params = new URLSearchParams()
+            if (page > 1) params.set('page', page)
+            if (perPage !== 20) params.set('limit', perPage)
+            if (currentSearch) params.set('search', currentSearch)
+            if (currentStatus) params.set('status', currentStatus)
+
+            const qs = params.toString()
+            const res = await apiFetch(`/borrows${qs ? '?' + qs : ''}`)
+            currentPage = res.page
+            totalPages = res.pages
+            currentTotal = res.total
+            renderTable(res.data)
+
+            // Update summary using total from API
+            document.getElementById('summaryBar').innerHTML = `
+              <div class="summary-card"><div class="val">${res.total}</div><div class="lbl">Total Records</div></div>
+            `
           }
         } catch (err) {
           document.getElementById('tableWrapper').innerHTML =
             `<p style="color:var(--danger);text-align:center;">${err.message}</p>`
         }
+      }
+
+      window.goToPage = function (page) {
+        if (page < 1 || page > totalPages) return
+        currentPage = page
+        loadRecords(page)
+      }
+
+      function onFilterChange() {
+        currentSearch = document.getElementById('searchInput').value.trim()
+        currentStatus = document.getElementById('statusFilter').value
+        currentPage = 1
+        loadRecords(1)
       }
 
       window.approveExtension = async function (id, days) {
@@ -264,9 +279,14 @@
         } catch (err) { showGlobalMsg(err.message, 'error') }
       }
 
-      document.getElementById('searchInput').addEventListener('input', filterAndRender)
-      document.getElementById('statusFilter').addEventListener('change', filterAndRender)
+      document.getElementById('searchInput').addEventListener('input', debounce(onFilterChange, 300))
+      document.getElementById('statusFilter').addEventListener('change', onFilterChange)
       loadRecords()
+
+      function debounce(fn, ms) {
+        let timer
+        return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms) }
+      }
     })()
   </script>
 </body>
