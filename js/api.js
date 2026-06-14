@@ -1,4 +1,9 @@
-const BASE_URL = "https://your-backend-url.onrender.com/api";
+const BASE_URL =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1" ||
+  window.location.protocol === "file:"
+    ? "http://localhost:3001/api"
+    : "https://your-backend-url.onrender.com/api";
 
 async function apiFetch(endpoint, options = {}) {
   const token = localStorage.getItem("token");

@@ -1,4 +1,12 @@
 (function () {
+  const token = localStorage.getItem("token");
+  const role = localStorage.getItem("role");
+
+  if (!token || role !== "admin") {
+    window.location.href = "login.html";
+    return;
+  }
+
   const adminBody = document.getElementById("adminBooksBody");
   const addForm = document.getElementById("addBookForm");
   const editForm = document.getElementById("editBookForm");

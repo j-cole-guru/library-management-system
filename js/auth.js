@@ -12,11 +12,50 @@ function showMessage(el, text, type) {
 function populateNav() {
   const nav = document.getElementById("navLinks");
   if (!nav) return;
-  nav.innerHTML = `
+
+  const token = localStorage.getItem("token");
+  const role = localStorage.getItem("role");
+  const name = localStorage.getItem("name");
+
+  let html = `
     <li><a href="index.html">Home</a></li>
     <li><a href="books.html">Books</a></li>
-    <li><a href="admin-books.html">Admin</a></li>
   `;
+
+  if (token) {
+    if (role === "admin") {
+      html += `<li><a href="admin-books.html">Admin</a></li>`;
+    }
+    html += `
+      <li class="user-info" style="color: var(--gold); font-size: 0.95rem; display: flex; align-items: center;">
+        Welcome, ${name || "User"}
+      </li>
+      <li><a href="#" class="btn-nav" id="logoutBtn">Logout</a></li>
+    `;
+  } else {
+    html += `
+      <li><a href="login.html">Login</a></li>
+      <li><a href="register.html" class="btn-nav">Register</a></li>
+    `;
+  }
+
+  nav.innerHTML = html;
+
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      logout();
+    });
+  }
+}
+
+function logout() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("username");
+  localStorage.removeItem("name");
+  localStorage.removeItem("role");
+  window.location.href = "index.html";
 }
 
 function setupHamburger() {
