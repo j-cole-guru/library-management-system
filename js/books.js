@@ -77,29 +77,101 @@
     (async () => {
       try {
         const book = await apiFetch(`/books/${id}`);
-        const copies = book.copies || 0;
-        const isAvailable = copies > 0;
+        const token = localStorage.getItem("token");
+        const role = localStorage.getItem("role");
 
-        container.innerHTML = `
-          <div class="book-detail">
-            <div class="book-cover">
-              <img src="https://via.placeholder.com/300x400?text=No+Cover" alt="${book.title}">
-            </div>
-            <div class="book-info">
-              <h1>${book.title}</h1>
-              <p class="author">by ${book.author || "Unknown"}</p>
-              <div class="meta">
-                <span><strong>Category:</strong> ${book.category || "N/A"}</span>
-                <span><strong>ISBN:</strong> ${book.isbn || "N/A"}</span>
-                <span><strong>Copies:</strong> ${copies}</span>
+        let isBorrowed = false;
+        if (token) {
+          try {
+            const statusRes = await apiFetch(`/books/${id}/borrow-status`);
+            isBorrowed = statusRes.borrowed;
+          } catch (_) {}
+        }
+
+        function renderDetail(currentBook, borrowed) {
+          const copies = currentBook.copies || 0;
+          const isAvailable = copies > 0;
+
+          // Borrow button logic
+          let borrowSection = "";
+          if (token && role !== "admin") {
+            if (borrowed) {
+              borrowSection = `
+                <button id="borrowBtn" class="btn btn-danger" style="margin-top:1.2rem;">
+                  &#8617; Return Book
+                </button>
+              `;
+            } else if (isAvailable) {
+              borrowSection = `
+                <button id="borrowBtn" class="btn btn-primary" style="margin-top:1.2rem;">
+                  &#128218; Borrow Book
+                </button>
+              `;
+            } else {
+              borrowSection = `
+                <button class="btn" style="margin-top:1.2rem;opacity:0.5;cursor:not-allowed;" disabled>
+                  No Copies Available
+                </button>
+              `;
+            }
+          } else if (!token) {
+            borrowSection = `
+              <p style="margin-top:1.2rem;color:var(--gray);">
+                <a href="login.html" style="color:var(--gold);font-weight:500;">Login</a> to borrow this book.
+              </p>
+            `;
+          }
+
+          container.innerHTML = `
+            <div class="book-detail">
+              <div class="book-cover">
+                <img src="https://via.placeholder.com/300x400?text=No+Cover" alt="${currentBook.title}">
               </div>
-              <div class="availability ${isAvailable ? "available" : "unavailable"}">
-                ${isAvailable ? "&#10003; Available (" + copies + " copies)" : "&#10007; Currently Unavailable"}
+              <div class="book-info">
+                <h1>${currentBook.title}</h1>
+                <p class="author">by ${currentBook.author || "Unknown"}</p>
+                <div class="meta">
+                  <span><strong>Category:</strong> ${currentBook.category || "N/A"}</span>
+                  <span><strong>ISBN:</strong> ${currentBook.isbn || "N/A"}</span>
+                  <span id="copiesDisplay"><strong>Copies:</strong> ${copies}</span>
+                </div>
+                <div class="availability ${isAvailable ? "available" : "unavailable"}" id="availabilityDisplay">
+                  ${isAvailable ? "&#10003; Available (" + copies + " copies)" : "&#10007; Currently Unavailable"}
+                </div>
+                <p class="description">${currentBook.description || "No description available."}</p>
+                <div id="borrowMessage" class="message" style="margin-top:1rem;display:none;"></div>
+                ${borrowSection}
               </div>
-              <p class="description">${book.description || "No description available."}</p>
             </div>
-          </div>
-        `;
+          `;
+
+          const borrowBtn = document.getElementById("borrowBtn");
+          if (!borrowBtn) return;
+
+          borrowBtn.addEventListener("click", async () => {
+            const msgEl = document.getElementById("borrowMessage");
+            borrowBtn.disabled = true;
+            const action = borrowed ? "return" : "borrow";
+            borrowBtn.textContent = action === "borrow" ? "Borrowing..." : "Returning...";
+
+            try {
+              const result = await apiFetch(`/books/${id}/${action}`, { method: "POST" });
+              isBorrowed = !borrowed;
+              msgEl.textContent = result.message;
+              msgEl.className = "message success";
+              msgEl.style.display = "block";
+              renderDetail(result.book, isBorrowed);
+            } catch (err) {
+              borrowBtn.disabled = false;
+              borrowBtn.textContent = borrowed ? "&#8617; Return Book" : "&#128218; Borrow Book";
+              msgEl.textContent = err.message;
+              msgEl.className = "message error";
+              msgEl.style.display = "block";
+            }
+          });
+        }
+
+        renderDetail(book, isBorrowed);
       } catch (err) {
         container.innerHTML = `<p style="color:var(--danger);">Failed to load book: ${err.message}</p>`;
       }
